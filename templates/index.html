@@ -104,6 +104,21 @@
             box-shadow: 0 4px 12px rgba(0, 113, 227, 0.2);
         }
 
+        .btn:disabled {
+            background: #c7c7cc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary {
+            background: #5856d6;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 4px 12px rgba(88, 86, 214, 0.2);
+        }
+
         #file-input {
             display: none;
         }
@@ -171,6 +186,48 @@
             font-size: 0.95rem;
         }
 
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: auto;
+        }
+
+        .checkbox-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .merge-container {
+            margin-top: var(--spacing);
+            text-align: center;
+        }
+
+        .loading {
+            position: relative;
+            pointer-events: none;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            margin: -10px 0 0 -10px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 600px) {
             .container {
                 padding: 16px;
@@ -184,6 +241,14 @@
                 width: 100%;
                 text-align: center;
             }
+
+            .download-item {
+                flex-direction: column;
+            }
+
+            .download-item .btn {
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -196,9 +261,9 @@
         </div>
 
         <div class="upload-container">
-            <form action="" method="post" enctype="multipart/form-data">
+            <form action="/upload" method="post" enctype="multipart/form-data">
                 <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                    <input type="file" name="keynote_files" id="file-input" multiple accept=".key">
+                    <input type="file" name="file" id="file-input" multiple accept=".key">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8e8e93; margin-bottom: 16px;">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="17 8 12 3 7 8"/>
@@ -236,11 +301,19 @@
                 <ul class="download-list">
                     {% for pdf in pdf_files %}
                         <li class="download-item">
-                            <span>{{ pdf }}</span>
+                            <div class="checkbox-container">
+                                <input type="checkbox" class="pdf-select" value="{{ pdf }}" onchange="updateMergeButton()">
+                                <span>{{ pdf }}</span>
+                            </div>
                             <a href="{{ url_for('download_file', filename=pdf) }}" class="btn">Download PDF</a>
                         </li>
                     {% endfor %}
                 </ul>
+                <div class="merge-container">
+                    <button id="mergeButton" class="btn btn-secondary" onclick="mergePDFs()" disabled>
+                        Merge Selected PDFs
+                    </button>
+                </div>
             </div>
         {% endif %}
     </div>
@@ -248,6 +321,7 @@
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
+        const mergeButton = document.getElementById('mergeButton');
 
         // Prevent default drag behaviors
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -293,6 +367,55 @@
                 this.form.submit();
             }
         });
+
+        function updateMergeButton() {
+            const selectedFiles = document.querySelectorAll('.pdf-select:checked');
+            mergeButton.disabled = selectedFiles.length < 2;
+        }
+
+        async function mergePDFs() {
+            const selectedFiles = Array.from(document.querySelectorAll('.pdf-select:checked'))
+                .map(checkbox => checkbox.value);
+
+            if (selectedFiles.length < 2) {
+                alert('Please select at least 2 PDF files to merge.');
+                return;
+            }
+
+            // Add loading state
+            mergeButton.classList.add('loading');
+            mergeButton.disabled = true;
+
+            try {
+                const response = await fetch('/merge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ files: selectedFiles }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Create a temporary link to download the merged file
+                    const link = document.createElement('a');
+                    link.href = `/download/${result.merged_file}`;
+                    link.download = result.merged_file;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else {
+                    alert('Error merging PDFs: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error merging PDFs: ' + error.message);
+            } finally {
+                // Remove loading state
+                mergeButton.classList.remove('loading');
+                mergeButton.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>

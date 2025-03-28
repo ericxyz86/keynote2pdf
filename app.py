@@ -9,9 +9,13 @@ from flask import (
     flash,
     url_for,
     redirect,
+    send_file,
+    jsonify,
 )
 from werkzeug.utils import secure_filename
 import logging
+from PyPDF2 import PdfMerger
+from datetime import datetime
 
 # --- Configuration ---
 # Use absolute paths for reliability
@@ -269,6 +273,42 @@ def download_file(filename):
         logging.error(f"Error during download of {safe_filename}: {e}")
         flash("An error occurred while trying to download the file.", "error")
         return redirect(url_for("upload_and_convert"))
+
+
+@app.route("/merge", methods=["POST"])
+def merge_pdfs():
+    try:
+        # Get list of PDF files to merge from the request
+        files_to_merge = request.json.get("files", [])
+        if not files_to_merge:
+            return jsonify({"error": "No files selected for merging"}), 400
+
+        # Create a timestamp for the merged file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        merged_filename = f"merged_{timestamp}.pdf"
+        merged_path = os.path.join(app.config["CONVERTED_FOLDER"], merged_filename)
+
+        # Create PDF merger instance
+        merger = PdfMerger()
+
+        # Add each PDF to the merger
+        for filename in files_to_merge:
+            file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
+            if os.path.exists(file_path):
+                merger.append(file_path)
+            else:
+                return jsonify({"error": f"File not found: {filename}"}), 404
+
+        # Write the merged PDF
+        merger.write(merged_path)
+        merger.close()
+
+        # Return the filename of the merged PDF
+        return jsonify({"success": True, "merged_file": merged_filename})
+
+    except Exception as e:
+        logging.error(f"Error merging PDFs: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 # --- Main Execution ---
