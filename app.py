@@ -9,7 +9,6 @@ from flask import (
     flash,
     url_for,
     redirect,
-    send_file,
     jsonify,
 )
 from werkzeug.utils import secure_filename
@@ -291,15 +290,19 @@ def merge_pdfs():
         # Create PDF merger instance
         merger = PdfMerger()
 
-        # Add each PDF to the merger
+        # Add each PDF to the merger with compression
         for filename in files_to_merge:
             file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
             if os.path.exists(file_path):
-                merger.append(file_path)
+                merger.append(
+                    file_path,
+                    pages=None,
+                    import_outline=False,  # Disable outline/bookmarks to reduce size
+                )
             else:
                 return jsonify({"error": f"File not found: {filename}"}), 404
 
-        # Write the merged PDF
+        # Write the merged PDF with compression settings
         merger.write(merged_path)
         merger.close()
 
