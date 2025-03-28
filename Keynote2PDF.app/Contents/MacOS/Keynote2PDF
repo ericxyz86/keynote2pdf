@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Get the bundle's root directory
+BUNDLE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../.." && pwd )"
+APP_ROOT="$HOME/.keynote2pdf"
+
+# First launch setup
+if [ ! -d "$APP_ROOT" ]; then
+    echo "First time setup..."
+    
+    # Create application directory
+    mkdir -p "$APP_ROOT"
+    
+    # Copy application files
+    cp -R "$BUNDLE_ROOT/Contents/Resources/app/"* "$APP_ROOT/"
+    
+    # Create virtual environment
+    python3 -m venv "$APP_ROOT/venv"
+    
+    # Install dependencies
+    source "$APP_ROOT/venv/bin/activate"
+    pip install -r "$APP_ROOT/requirements.txt"
+    
+    # Create Launch Agent for web service
+    mkdir -p "$HOME/Library/LaunchAgents"
+    cat > "$HOME/Library/LaunchAgents/com.keynote2pdf.converter.plist" << EOL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.keynote2pdf.converter</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$APP_ROOT/run.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>$APP_ROOT/error.log</string>
+    <key>StandardOutPath</key>
+    <string>$APP_ROOT/output.log</string>
+    <key>WorkingDirectory</key>
+    <string>$APP_ROOT</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>
+EOL
+    
+    # Load the web service Launch Agent
+    launchctl load "$HOME/Library/LaunchAgents/com.keynote2pdf.converter.plist"
+fi
+
+# Start the menu bar application
+source "$APP_ROOT/venv/bin/activate"
+exec python3 "$APP_ROOT/menubar.py" 
