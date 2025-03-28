@@ -302,9 +302,9 @@
         </div>
 
         <div class="upload-container">
-            <form action="/upload" method="post" enctype="multipart/form-data">
+            <form action="/" method="post" enctype="multipart/form-data" id="upload-form">
                 <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
-                    <input type="file" name="file" id="file-input" multiple accept=".key">
+                    <input type="file" name="keynote_files" id="file-input" multiple accept=".key">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8e8e93; margin-bottom: 16px;">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                         <polyline points="17 8 12 3 7 8"/>
@@ -389,7 +389,15 @@
         });
 
         // Handle dropped files
-        dropZone.addEventListener('drop', handleDrop, false);
+        dropZone.addEventListener('drop', function(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            const form = document.getElementById('upload-form');
+            form.submit();
+            // Clear the input to prevent resubmission
+            fileInput.value = '';
+        });
 
         function preventDefaults(e) {
             e.preventDefault();
@@ -404,17 +412,13 @@
             dropZone.classList.remove('dragover');
         }
 
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            fileInput.files = files;
-            fileInput.form.submit();
-        }
-
         // Auto-submit form when files are selected
         fileInput.addEventListener('change', function() {
             if (this.files.length > 0) {
-                this.form.submit();
+                const form = document.getElementById('upload-form');
+                form.submit();
+                // Clear the input to prevent resubmission
+                this.value = '';
             }
         });
 
@@ -498,6 +502,10 @@
 
             if (!confirm('Are you sure you want to delete the selected files?')) return;
 
+            const deleteButton = document.getElementById('deleteButton');
+            deleteButton.disabled = true;
+            deleteButton.classList.add('loading');
+
             try {
                 const response = await fetch('/delete', {
                     method: 'POST',
@@ -513,22 +521,34 @@
                     // Remove deleted items from the list
                     selectedFiles.forEach(filename => {
                         const listItem = document.querySelector(`.pdf-select[value="${filename}"]`).closest('li');
-                        listItem.remove();
+                        if (listItem) {
+                            listItem.remove();
+                        }
                     });
                     
                     // Update buttons state
                     updateButtons();
 
-                    // If no files left, refresh the page
+                    // If no files left, reload the page after a short delay
                     if (document.querySelectorAll('.pdf-select').length === 0) {
-                        location.reload();
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
                     }
                 } else {
                     alert('Error deleting files: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
                 alert('Error deleting files: ' + error.message);
+            } finally {
+                deleteButton.disabled = false;
+                deleteButton.classList.remove('loading');
             }
+        }
+
+        // Prevent form resubmission on page reload
+        if (window.history.replaceState) {
+            window.history.replaceState(null, null, window.location.href);
         }
     </script>
 </body>

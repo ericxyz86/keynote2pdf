@@ -142,6 +142,12 @@ def upload_and_convert():
     pdf_files = []
     failed_files = {}  # Dictionary to store {original_filename: error_message}
 
+    # Get list of existing PDF files
+    if os.path.exists(app.config["CONVERTED_FOLDER"]):
+        pdf_files = [
+            f for f in os.listdir(app.config["CONVERTED_FOLDER"]) if f.endswith(".pdf")
+        ]
+
     if request.method == "POST":
         # Check if the post request has the file part
         if "keynote_files" not in request.files:
@@ -165,17 +171,21 @@ def upload_and_convert():
                 )
                 key_filepath = os.path.join(app.config["UPLOAD_FOLDER"], temp_filename)
 
+                # Check if a PDF with this unique_id already exists
+                pdf_filename = (
+                    f"{os.path.splitext(original_filename)[0]}_{unique_id}.pdf"
+                )
+                pdf_filepath = os.path.join(
+                    app.config["CONVERTED_FOLDER"], pdf_filename
+                )
+
+                if pdf_filename in pdf_files:
+                    # Skip processing if file already exists
+                    continue
+
                 try:
                     file.save(key_filepath)
                     logging.info(f"Saved uploaded file: {key_filepath}")
-
-                    # Prepare output PDF path
-                    pdf_filename = (
-                        f"{os.path.splitext(original_filename)[0]}_{unique_id}.pdf"
-                    )
-                    pdf_filepath = os.path.join(
-                        app.config["CONVERTED_FOLDER"], pdf_filename
-                    )
 
                     # Perform conversion
                     success, message = convert_key_to_pdf(key_filepath, pdf_filepath)
@@ -217,7 +227,6 @@ def upload_and_convert():
                     f"File type not allowed for '{file.filename}'. Only .key files are accepted.",
                     "error",
                 )
-            # If file.filename is empty, it means no file was selected (already handled), skip.
 
         # Flash messages based on results
         if processed_count > 0:
@@ -227,25 +236,14 @@ def upload_and_convert():
                 f"Failed to convert {len(failed_files)} file(s). See details below.",
                 "error",
             )
-        elif (
-            processed_count == 0
-            and not failed_files
-            and files
-            and files[0].filename != ""
-        ):
-            # This case handles if only invalid file types were uploaded
-            pass  # Error already flashed inside loop
-        elif not files or files[0].filename == "":
-            # No files selected case, already flashed.
-            pass
 
         # Render template showing download links and failures
         return render_template(
             "index.html", pdf_files=pdf_files, failed_files=failed_files
         )
 
-    # For GET request, just show the upload form
-    return render_template("index.html", pdf_files=None, failed_files=None)
+    # For GET request, just show the upload form with existing files
+    return render_template("index.html", pdf_files=pdf_files, failed_files=None)
 
 
 @app.route("/download/<filename>")
