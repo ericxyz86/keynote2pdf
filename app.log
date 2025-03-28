@@ -10,3 +10,19 @@
 2025-03-28 18:40:44,113 - INFO - Deleted file: Meralco_Daily_Report_2025-03-27_c95515bc.pdf
 2025-03-28 18:40:44,114 - INFO - 127.0.0.1 - - [28/Mar/2025 18:40:44] "POST /delete HTTP/1.1" 200 -
 2025-03-28 18:40:44,633 - INFO - 127.0.0.1 - - [28/Mar/2025 18:40:44] "GET / HTTP/1.1" 200 -
+2025-03-28 18:47:25,106 - INFO - 127.0.0.1 - - [28/Mar/2025 18:47:25] "GET / HTTP/1.1" 200 -
+2025-03-28 18:47:35,227 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_75a631bc.key
+2025-03-28 18:47:35,228 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_75a631bc.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-28_75a631bc.pdf
+2025-03-28 18:47:42,787 - INFO - Successfully converted Meralco_Daily_Report_2025-03-28_75a631bc.key
+2025-03-28 18:47:42,788 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_75a631bc.key
+2025-03-28 18:47:42,812 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_6fbe3679.key
+2025-03-28 18:47:42,812 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_6fbe3679.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-27_6fbe3679.pdf
+2025-03-28 18:47:46,493 - INFO - Successfully converted Meralco_Daily_Report_2025-03-27_6fbe3679.key
+2025-03-28 18:47:46,494 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_6fbe3679.key
+2025-03-28 18:47:46,523 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_b9c7c72e.key
+2025-03-28 18:47:46,523 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_b9c7c72e.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-26_b9c7c72e.pdf
+2025-03-28 18:47:50,209 - INFO - Successfully converted Meralco_Daily_Report_2025-03-26_b9c7c72e.key
+2025-03-28 18:47:50,209 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_b9c7c72e.key
+2025-03-28 18:47:50,216 - INFO - 127.0.0.1 - - [28/Mar/2025 18:47:50] "POST / HTTP/1.1" 200 -
+2025-03-28 18:48:03,991 - INFO - Download requested for: Meralco_Daily_Report_2025-03-28_75a631bc.pdf
+2025-03-28 18:48:04,000 - INFO - 127.0.0.1 - - [28/Mar/2025 18:48:04] "GET /download/Meralco_Daily_Report_2025-03-28_75a631bc.pdf HTTP/1.1" 200 -

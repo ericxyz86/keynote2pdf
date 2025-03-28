@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 import logging
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from datetime import datetime
+import ghostscript
 
 # --- Configuration ---
 # Use absolute paths for reliability
@@ -53,14 +54,53 @@ def create_folders():
     os.makedirs(app.config["CONVERTED_FOLDER"], exist_ok=True)
 
 
+def convert_to_pdfa(input_pdf, output_pdf):
+    """
+    Convert a PDF to PDF/A format using Ghostscript.
+    Returns True on success, False on failure.
+    """
+    try:
+        # Ghostscript command to convert to PDF/A
+        args = [
+            "gs",
+            "-dPDFA=1",
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-sColorConversionStrategy=UseDeviceIndependentColor",
+            "-sDEVICE=pdfwrite",
+            "-dPDFACompatibilityPolicy=1",
+            f"-sOutputFile={output_pdf}",
+            input_pdf,
+        ]
+
+        process = subprocess.run(args, capture_output=True, text=True, check=False)
+
+        if process.returncode == 0 and os.path.exists(output_pdf):
+            logging.info(f"Successfully converted to PDF/A: {output_pdf}")
+            return True, "Success"
+        else:
+            error_msg = (
+                process.stderr.strip() or "Unknown error during PDF/A conversion"
+            )
+            logging.error(f"PDF/A conversion failed: {error_msg}")
+            return False, f"PDF/A conversion failed: {error_msg}"
+
+    except Exception as e:
+        logging.error(f"Error during PDF/A conversion: {e}")
+        return False, f"PDF/A conversion error: {e}"
+
+
 def convert_key_to_pdf(key_filepath, pdf_filepath):
     """
-    Uses AppleScript to ask Keynote to export a .key file to .pdf.
+    Uses AppleScript to ask Keynote to export a .key file to .pdf, then converts to PDF/A.
     Returns True on success, False on failure.
     """
     logging.info(f"Attempting conversion: {key_filepath} -> {pdf_filepath}")
     # Ensure paths are absolute for AppleScript
     abs_key_path = os.path.abspath(key_filepath)
+    temp_pdf_path = os.path.join(
+        os.path.dirname(pdf_filepath), f"temp_{os.path.basename(pdf_filepath)}"
+    )
     abs_pdf_path = os.path.abspath(pdf_filepath)
 
     # Check if input file exists before attempting conversion
@@ -68,11 +108,38 @@ def convert_key_to_pdf(key_filepath, pdf_filepath):
         logging.error(f"Input Keynote file not found: {abs_key_path}")
         return False, "Input file not found"
 
+    try:
+        # First convert to regular PDF using Keynote
+        success, message = keynote_to_pdf(abs_key_path, temp_pdf_path)
+        if not success:
+            return False, message
+
+        # Then convert to PDF/A
+        success, message = convert_to_pdfa(temp_pdf_path, abs_pdf_path)
+
+        # Clean up temporary PDF
+        try:
+            os.remove(temp_pdf_path)
+        except OSError as e:
+            logging.warning(f"Could not remove temporary PDF: {e}")
+
+        return success, message
+
+    except Exception as e:
+        logging.error(f"Failed to convert file: {e}")
+        return False, f"Conversion failed: {e}"
+
+
+def keynote_to_pdf(key_filepath, pdf_filepath):
+    """
+    Uses AppleScript to ask Keynote to export a .key file to .pdf.
+    Returns True on success, False on failure.
+    """
     # Construct the AppleScript command with proper escaping
     applescript = f'''
     tell application "Keynote"
-        set keyFile to (POSIX file "{abs_key_path}") as alias
-        set pdfFile to "{abs_pdf_path}"
+        set keyFile to (POSIX file "{key_filepath}") as alias
+        set pdfFile to "{pdf_filepath}"
         
         try
             open keyFile
@@ -102,40 +169,31 @@ def convert_key_to_pdf(key_filepath, pdf_filepath):
             ["osascript", "-e", applescript],
             capture_output=True,
             text=True,
-            check=False,  # Don't raise exception on non-zero exit code, we check output
-            timeout=120,  # Add a timeout (e.g., 120 seconds)
+            check=False,
+            timeout=120,
         )
 
         # Check output and return code
         if process.returncode == 0 and "success" in process.stdout.strip().lower():
-            if os.path.exists(abs_pdf_path):
-                logging.info(f"Successfully converted {os.path.basename(key_filepath)}")
+            if os.path.exists(pdf_filepath):
+                logging.info(f"Successfully converted to PDF: {pdf_filepath}")
                 return True, "Success"
             else:
-                # Script ran but file wasn't created - rare but possible
-                logging.error(
-                    f"Conversion script ran for {os.path.basename(key_filepath)}, but output PDF not found."
-                )
-                return False, "Output PDF not generated despite script success"
+                logging.error(f"PDF not created despite successful script execution")
+                return False, "PDF not created despite successful script execution"
         else:
-            error_message = (
-                process.stderr.strip() if process.stderr else process.stdout.strip()
-            )
+            error_message = process.stderr.strip() or process.stdout.strip()
             if not error_message:
                 error_message = f"osascript exited with code {process.returncode}"
-            logging.error(
-                f"AppleScript execution failed for {os.path.basename(key_filepath)}. Error: {error_message}"
-            )
+            logging.error(f"AppleScript execution failed: {error_message}")
             return False, f"AppleScript Error: {error_message}"
 
     except subprocess.TimeoutExpired:
-        logging.error(f"Conversion timed out for {os.path.basename(key_filepath)}")
+        logging.error(f"Conversion timed out")
         return False, "Conversion process timed out"
     except Exception as e:
-        logging.error(
-            f"Failed to run osascript for {os.path.basename(key_filepath)}. Error: {e}"
-        )
-        return False, f"Subprocess execution failed: {e}"
+        logging.error(f"Failed to run conversion: {e}")
+        return False, f"Conversion failed: {e}"
 
 
 # --- Flask Routes ---
@@ -295,7 +353,9 @@ def merge_pdfs():
 
         # Create a timestamp for the merged file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        temp_merged = f"temp_merged_{timestamp}.pdf"
         merged_filename = f"merged_{timestamp}.pdf"
+        temp_path = os.path.join(app.config["CONVERTED_FOLDER"], temp_merged)
         merged_path = os.path.join(app.config["CONVERTED_FOLDER"], merged_filename)
 
         # Create PDF writer instance for the final output
@@ -312,34 +372,26 @@ def merge_pdfs():
             for page in reader.pages:
                 # Compress content streams
                 page.compress_content_streams()
-
-                # Get the page's resources dictionary
-                if "/Resources" in page:
-                    resources = page["/Resources"]
-
-                    # Compress images if they exist
-                    if "/XObject" in resources:
-                        xObject = resources["/XObject"]
-                        for obj in xObject:
-                            if xObject[obj]["/Subtype"] == "/Image":
-                                # Reduce image quality if it's a JPEG
-                                if (
-                                    "/Filter" in xObject[obj]
-                                    and xObject[obj]["/Filter"] == "/DCTDecode"
-                                ):
-                                    xObject[obj]["/Quality"] = (
-                                        60  # Lower quality for JPEG images
-                                    )
-
-                # Add the compressed page
                 writer.add_page(page)
 
-        # Write the final compressed PDF
-        with open(merged_path, "wb") as output_file:
+        # Write the merged PDF to temporary file
+        with open(temp_path, "wb") as output_file:
             writer.write(output_file)
 
-        # Return the filename of the merged PDF
-        return jsonify({"success": True, "merged_file": merged_filename})
+        # Convert merged PDF to PDF/A
+        success, message = convert_to_pdfa(temp_path, merged_path)
+
+        # Clean up temporary file
+        try:
+            os.remove(temp_path)
+        except OSError as e:
+            logging.warning(f"Could not remove temporary merged PDF: {e}")
+
+        if success:
+            # Return the filename of the merged PDF/A
+            return jsonify({"success": True, "merged_file": merged_filename})
+        else:
+            return jsonify({"error": message}), 500
 
     except Exception as e:
         logging.error(f"Error merging PDFs: {str(e)}")
