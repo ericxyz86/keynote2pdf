@@ -13,7 +13,7 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 import logging
-from PyPDF2 import PdfMerger
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from datetime import datetime
 
 # --- Configuration ---
@@ -290,7 +290,7 @@ def merge_pdfs():
         # Create PDF merger instance
         merger = PdfMerger()
 
-        # Add each PDF to the merger with compression
+        # Add each PDF to the merger
         for filename in files_to_merge:
             file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
             if os.path.exists(file_path):
@@ -302,9 +302,32 @@ def merge_pdfs():
             else:
                 return jsonify({"error": f"File not found: {filename}"}), 404
 
-        # Write the merged PDF with compression settings
-        merger.write(merged_path)
+        # Write to a temporary merged file
+        temp_merged = os.path.join(
+            app.config["CONVERTED_FOLDER"], f"temp_{merged_filename}"
+        )
+        merger.write(temp_merged)
         merger.close()
+
+        # Now compress the merged PDF
+        reader = PdfReader(temp_merged)
+        writer = PdfWriter()
+
+        # Copy pages with compression
+        for page in reader.pages:
+            # Compress the page
+            page.compress_content_streams()  # This compresses PDF content streams
+            writer.add_page(page)
+
+        # Save the compressed version
+        with open(merged_path, "wb") as output_file:
+            writer.write(output_file)
+
+        # Remove temporary file
+        try:
+            os.remove(temp_merged)
+        except Exception as e:
+            logging.warning(f"Could not remove temporary file: {e}")
 
         # Return the filename of the merged PDF
         return jsonify({"success": True, "merged_file": merged_filename})
