@@ -335,6 +335,32 @@ def merge_pdfs():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/delete", methods=["POST"])
+def delete_files():
+    try:
+        # Get list of files to delete from the request
+        files_to_delete = request.json.get("files", [])
+        if not files_to_delete:
+            return jsonify({"error": "No files selected for deletion"}), 400
+
+        # Delete each file
+        for filename in files_to_delete:
+            file_path = os.path.join(
+                app.config["CONVERTED_FOLDER"], secure_filename(filename)
+            )
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                logging.info(f"Deleted file: {filename}")
+            else:
+                logging.warning(f"File not found for deletion: {filename}")
+
+        return jsonify({"success": True})
+
+    except Exception as e:
+        logging.error(f"Error deleting files: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
 # --- Main Execution ---
 if __name__ == "__main__":
     create_folders()  # Ensure folders exist before starting
