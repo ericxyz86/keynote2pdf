@@ -27,11 +27,16 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["CONVERTED_FOLDER"] = CONVERTED_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 300 * 1024 * 1024  # Max upload 300 MB total
-app.secret_key = "your_very_secret_key_here"  # Change this in production!
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your_very_secret_key_here")
 
 # --- Logging Setup ---
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(os.path.join(BASE_DIR, "app.log")),
+        logging.StreamHandler(),
+    ],
 )
 
 # --- Helper Functions ---
@@ -370,8 +375,15 @@ def delete_files():
 # --- Main Execution ---
 if __name__ == "__main__":
     create_folders()  # Ensure folders exist before starting
-    # Use host='0.0.0.0' to make it accessible on your network
-    # Use debug=True only for development, not production
-    app.run(debug=True, host="127.0.0.1", port=8080)
-    # For production, use a proper WSGI server like Gunicorn or Waitress
-    # Example: gunicorn -w 4 app:app
+
+    # Get configuration from environment variables with defaults
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", 8080))
+    debug = os.environ.get("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
+
+    # In production, always use 127.0.0.1 as host for security
+    if not debug:
+        host = "127.0.0.1"
+
+    app.run(debug=debug, host=host, port=port, threaded=True)
+    # Note: For production, use: gunicorn -w 4 -b 127.0.0.1:8080 app:app

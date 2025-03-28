@@ -1,3 +1,4 @@
 Flask==3.0.2
+PyPDF2==3.0.1
 Werkzeug==3.0.1
-PyPDF2==3.0.1 
+gunicorn==21.2.0 
