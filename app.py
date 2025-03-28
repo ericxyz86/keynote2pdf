@@ -287,47 +287,45 @@ def merge_pdfs():
         merged_filename = f"merged_{timestamp}.pdf"
         merged_path = os.path.join(app.config["CONVERTED_FOLDER"], merged_filename)
 
-        # Create PDF merger instance
-        merger = PdfMerger()
-
-        # Add each PDF to the merger
-        for filename in files_to_merge:
-            file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
-            if os.path.exists(file_path):
-                merger.append(
-                    file_path,
-                    pages=None,
-                    import_outline=False,  # Disable outline/bookmarks to reduce size
-                )
-            else:
-                return jsonify({"error": f"File not found: {filename}"}), 404
-
-        # Write to a temporary merged file
-        temp_merged = os.path.join(
-            app.config["CONVERTED_FOLDER"], f"temp_{merged_filename}"
-        )
-        merger.write(temp_merged)
-        merger.close()
-
-        # Now compress the merged PDF
-        reader = PdfReader(temp_merged)
+        # Create PDF writer instance for the final output
         writer = PdfWriter()
 
-        # Copy pages with compression
-        for page in reader.pages:
-            # Compress the page
-            page.compress_content_streams()  # This compresses PDF content streams
-            writer.add_page(page)
+        # Process each PDF file
+        for filename in files_to_merge:
+            file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
+            if not os.path.exists(file_path):
+                return jsonify({"error": f"File not found: {filename}"}), 404
 
-        # Save the compressed version
+            # Read and process each PDF
+            reader = PdfReader(file_path)
+            for page in reader.pages:
+                # Compress content streams
+                page.compress_content_streams()
+
+                # Get the page's resources dictionary
+                if "/Resources" in page:
+                    resources = page["/Resources"]
+
+                    # Compress images if they exist
+                    if "/XObject" in resources:
+                        xObject = resources["/XObject"]
+                        for obj in xObject:
+                            if xObject[obj]["/Subtype"] == "/Image":
+                                # Reduce image quality if it's a JPEG
+                                if (
+                                    "/Filter" in xObject[obj]
+                                    and xObject[obj]["/Filter"] == "/DCTDecode"
+                                ):
+                                    xObject[obj]["/Quality"] = (
+                                        60  # Lower quality for JPEG images
+                                    )
+
+                # Add the compressed page
+                writer.add_page(page)
+
+        # Write the final compressed PDF
         with open(merged_path, "wb") as output_file:
             writer.write(output_file)
-
-        # Remove temporary file
-        try:
-            os.remove(temp_merged)
-        except Exception as e:
-            logging.warning(f"Could not remove temporary file: {e}")
 
         # Return the filename of the merged PDF
         return jsonify({"success": True, "merged_file": merged_filename})
