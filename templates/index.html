@@ -73,6 +73,7 @@
             background: #fafafa;
             position: relative;
             overflow: hidden;
+            transition: opacity 0.3s ease;
         }
 
         .upload-area:hover, .upload-area.dragover {
@@ -291,6 +292,66 @@
                 flex-direction: column;
             }
         }
+
+        /* Loading Animation Styles */
+        .converting-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .converting-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .converting-text {
+            font-size: 1.2em;
+            color: #333;
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .file-status {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Loading state for buttons */
+        .button.loading {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        /* Adjust existing styles */
+        .upload-area.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -303,7 +364,7 @@
 
         <div class="upload-container">
             <form action="/" method="post" enctype="multipart/form-data" id="upload-form">
-                <div class="upload-area" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <div class="upload-area" id="drop-zone">
                     <input type="file" name="keynote_files" id="file-input" multiple accept=".key">
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8e8e93; margin-bottom: 16px;">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -311,7 +372,7 @@
                         <line x1="12" y1="3" x2="12" y2="15"/>
                     </svg>
                     <p>Drag and drop your Keynote files here</p>
-                    <button type="button" class="btn" onclick="document.getElementById('file-input').click()">Choose Files</button>
+                    <button type="button" class="btn" id="choose-files-btn">Choose Files</button>
                     <p style="margin-top: 16px; font-size: 0.9rem;">Supported format: .key</p>
                 </div>
             </form>
@@ -368,10 +429,32 @@
         {% endif %}
     </div>
 
+    <!-- Add Converting Overlay -->
+    <div class="converting-overlay" id="convertingOverlay">
+        <div class="spinner"></div>
+        <div class="converting-text">Converting Files to PDF</div>
+        <div class="file-status" id="fileStatus"></div>
+    </div>
+
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('file-input');
         const mergeButton = document.getElementById('mergeButton');
+        const chooseFilesBtn = document.getElementById('choose-files-btn');
+
+        // Handle the choose files button click
+        chooseFilesBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event from bubbling to drop-zone
+            fileInput.click();
+        });
+
+        // Handle the drop-zone click
+        dropZone.addEventListener('click', function(e) {
+            // Only trigger file input if clicking directly on the drop zone (not on the button)
+            if (e.target === dropZone || e.target.tagName === 'P' || e.target.tagName === 'SVG') {
+                fileInput.click();
+            }
+        });
 
         // Prevent default drag behaviors
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -390,13 +473,25 @@
 
         // Handle dropped files
         dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
             const dt = e.dataTransfer;
             const files = dt.files;
-            fileInput.files = files;
-            const form = document.getElementById('upload-form');
-            form.submit();
-            // Clear the input to prevent resubmission
-            fileInput.value = '';
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                const form = document.getElementById('upload-form');
+                
+                // Show converting animation
+                const overlay = document.getElementById('convertingOverlay');
+                const statusDiv = document.getElementById('fileStatus');
+                overlay.classList.add('active');
+                statusDiv.textContent = `Processing ${files.length} file${files.length > 1 ? 's' : ''}...`;
+                
+                // Disable the drop zone while converting
+                document.getElementById('drop-zone').classList.add('loading');
+                
+                form.submit();
+            }
         });
 
         function preventDefaults(e) {
@@ -416,9 +511,17 @@
         fileInput.addEventListener('change', function() {
             if (this.files.length > 0) {
                 const form = document.getElementById('upload-form');
+                
+                // Show converting animation
+                const overlay = document.getElementById('convertingOverlay');
+                const statusDiv = document.getElementById('fileStatus');
+                overlay.classList.add('active');
+                statusDiv.textContent = `Processing ${this.files.length} file${this.files.length > 1 ? 's' : ''}...`;
+                
+                // Disable the drop zone while converting
+                document.getElementById('drop-zone').classList.add('loading');
+                
                 form.submit();
-                // Clear the input to prevent resubmission
-                this.value = '';
             }
         });
 
@@ -545,6 +648,40 @@
                 deleteButton.classList.remove('loading');
             }
         }
+
+        // Show converting animation when form is submitted
+        document.getElementById('upload-form').addEventListener('submit', function(e) {
+            const files = document.getElementById('file-input').files;
+            if (files.length > 0) {
+                const overlay = document.getElementById('convertingOverlay');
+                const statusDiv = document.getElementById('fileStatus');
+                overlay.classList.add('active');
+                
+                // Show total number of files being converted
+                statusDiv.textContent = `Processing ${files.length} file${files.length > 1 ? 's' : ''}...`;
+                
+                // Disable the drop zone while converting
+                document.getElementById('drop-zone').classList.add('loading');
+            }
+        });
+
+        // Handle conversion complete
+        {% if conversion_complete %}
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.getElementById('convertingOverlay');
+            const dropZone = document.getElementById('drop-zone');
+            
+            // Hide the overlay with a fade effect
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                overlay.classList.remove('active');
+                overlay.style.opacity = '1';
+            }, 500);
+            
+            // Re-enable the drop zone
+            dropZone.classList.remove('loading');
+        });
+        {% endif %}
 
         // Prevent form resubmission on page reload
         if (window.history.replaceState) {

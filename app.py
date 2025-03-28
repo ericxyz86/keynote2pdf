@@ -141,6 +141,7 @@ def upload_and_convert():
     """Handles file uploads and initiates conversion."""
     pdf_files = []
     failed_files = {}  # Dictionary to store {original_filename: error_message}
+    conversion_complete = False  # Flag to indicate if conversion just completed
 
     # Get list of existing PDF files
     if os.path.exists(app.config["CONVERTED_FOLDER"]):
@@ -231,19 +232,26 @@ def upload_and_convert():
         # Flash messages based on results
         if processed_count > 0:
             flash(f"Successfully converted {processed_count} file(s).", "success")
+            conversion_complete = True
         if failed_files:
             flash(
                 f"Failed to convert {len(failed_files)} file(s). See details below.",
                 "error",
             )
+            conversion_complete = True
 
         # Render template showing download links and failures
         return render_template(
-            "index.html", pdf_files=pdf_files, failed_files=failed_files
+            "index.html",
+            pdf_files=pdf_files,
+            failed_files=failed_files,
+            conversion_complete=conversion_complete,
         )
 
     # For GET request, just show the upload form with existing files
-    return render_template("index.html", pdf_files=pdf_files, failed_files=None)
+    return render_template(
+        "index.html", pdf_files=pdf_files, failed_files=None, conversion_complete=False
+    )
 
 
 @app.route("/download/<filename>")
