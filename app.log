@@ -26,3 +26,37 @@
 2025-03-28 18:47:50,216 - INFO - 127.0.0.1 - - [28/Mar/2025 18:47:50] "POST / HTTP/1.1" 200 -
 2025-03-28 18:48:03,991 - INFO - Download requested for: Meralco_Daily_Report_2025-03-28_75a631bc.pdf
 2025-03-28 18:48:04,000 - INFO - 127.0.0.1 - - [28/Mar/2025 18:48:04] "GET /download/Meralco_Daily_Report_2025-03-28_75a631bc.pdf HTTP/1.1" 200 -
+2025-03-28 19:00:24,080 - INFO - 127.0.0.1 - - [28/Mar/2025 19:00:24] "GET / HTTP/1.1" 200 -
+2025-03-28 19:00:38,639 - INFO - Deleted file: Meralco_Daily_Report_2025-03-27_6fbe3679.pdf
+2025-03-28 19:00:38,641 - INFO - Deleted file: Meralco_Daily_Report_2025-03-28_75a631bc.pdf
+2025-03-28 19:00:38,641 - INFO - Deleted file: Meralco_Daily_Report_2025-03-26_b9c7c72e.pdf
+2025-03-28 19:00:38,642 - INFO - 127.0.0.1 - - [28/Mar/2025 19:00:38] "POST /delete HTTP/1.1" 200 -
+2025-03-28 19:00:39,161 - INFO - 127.0.0.1 - - [28/Mar/2025 19:00:39] "GET / HTTP/1.1" 200 -
+2025-03-28 19:00:45,009 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_db480ed9.key
+2025-03-28 19:00:45,009 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_db480ed9.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-28_db480ed9.pdf
+2025-03-28 19:00:52,451 - INFO - Successfully converted Meralco_Daily_Report_2025-03-28_db480ed9.key
+2025-03-28 19:00:52,452 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-28_db480ed9.key
+2025-03-28 19:00:52,456 - INFO - 127.0.0.1 - - [28/Mar/2025 19:00:52] "POST / HTTP/1.1" 200 -
+2025-03-28 19:00:54,454 - INFO - Download requested for: Meralco_Daily_Report_2025-03-28_db480ed9.pdf
+2025-03-28 19:00:54,459 - INFO - 127.0.0.1 - - [28/Mar/2025 19:00:54] "GET /download/Meralco_Daily_Report_2025-03-28_db480ed9.pdf HTTP/1.1" 200 -
+2025-03-28 19:02:07,573 - INFO - 127.0.0.1 - - [28/Mar/2025 19:02:07] "GET / HTTP/1.1" 200 -
+2025-03-28 19:02:09,349 - INFO - 127.0.0.1 - - [28/Mar/2025 19:02:09] "GET / HTTP/1.1" 200 -
+2025-03-28 19:02:14,384 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_067aa651.key
+2025-03-28 19:02:14,384 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_067aa651.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-27_067aa651.pdf
+2025-03-28 19:02:18,713 - INFO - Successfully converted Meralco_Daily_Report_2025-03-27_067aa651.key
+2025-03-28 19:02:18,713 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-27_067aa651.key
+2025-03-28 19:02:18,716 - INFO - 127.0.0.1 - - [28/Mar/2025 19:02:18] "POST / HTTP/1.1" 200 -
+2025-03-28 19:02:25,666 - INFO - Download requested for: Meralco_Daily_Report_2025-03-27_067aa651.pdf
+2025-03-28 19:02:25,669 - INFO - 127.0.0.1 - - [28/Mar/2025 19:02:25] "GET /download/Meralco_Daily_Report_2025-03-27_067aa651.pdf HTTP/1.1" 200 -
+2025-03-28 19:03:00,267 - INFO - 127.0.0.1 - - [28/Mar/2025 19:03:00] "GET / HTTP/1.1" 200 -
+2025-03-28 19:03:05,988 - INFO - Deleted file: Meralco_Daily_Report_2025-03-28_db480ed9.pdf
+2025-03-28 19:03:05,989 - INFO - Deleted file: Meralco_Daily_Report_2025-03-27_067aa651.pdf
+2025-03-28 19:03:05,991 - INFO - 127.0.0.1 - - [28/Mar/2025 19:03:05] "POST /delete HTTP/1.1" 200 -
+2025-03-28 19:03:06,506 - INFO - 127.0.0.1 - - [28/Mar/2025 19:03:06] "GET / HTTP/1.1" 200 -
+2025-03-28 19:03:12,542 - INFO - Saved uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_0b59b693.key
+2025-03-28 19:03:12,542 - INFO - Attempting conversion: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_0b59b693.key -> /Users/ep/Desktop/keynote2pdf/converted/Meralco_Daily_Report_2025-03-26_0b59b693.pdf
+2025-03-28 19:03:16,369 - INFO - Successfully converted Meralco_Daily_Report_2025-03-26_0b59b693.key
+2025-03-28 19:03:16,371 - INFO - Removed uploaded file: /Users/ep/Desktop/keynote2pdf/uploads/Meralco_Daily_Report_2025-03-26_0b59b693.key
+2025-03-28 19:03:16,375 - INFO - 127.0.0.1 - - [28/Mar/2025 19:03:16] "POST / HTTP/1.1" 200 -
+2025-03-28 19:03:18,656 - INFO - Download requested for: Meralco_Daily_Report_2025-03-26_0b59b693.pdf
+2025-03-28 19:03:18,658 - INFO - 127.0.0.1 - - [28/Mar/2025 19:03:18] "GET /download/Meralco_Daily_Report_2025-03-26_0b59b693.pdf HTTP/1.1" 200 -

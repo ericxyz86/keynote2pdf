@@ -16,6 +16,9 @@ import logging
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from datetime import datetime
 import ghostscript
+import fitz  # PyMuPDF
+import io
+from PIL import Image
 
 # --- Configuration ---
 # Use absolute paths for reliability
@@ -196,6 +199,95 @@ def keynote_to_pdf(key_filepath, pdf_filepath):
         return False, f"Conversion failed: {e}"
 
 
+def compress_pdf(input_path, output_path, dpi=150, quality=60):
+    """
+    Compresses a PDF by downsampling and re-compressing embedded images.
+    """
+    if not os.path.exists(input_path):
+        logging.error(f"Input file not found at '{input_path}'")
+        return False, "Input file not found"
+
+    try:
+        with fitz.open(input_path) as doc:
+            image_count = 0
+            processed_count = 0
+            skipped_count = 0
+
+            for page_num, page in enumerate(doc):
+                images = page.get_images(full=True)
+                image_count += len(images)
+
+                for img_index, img in enumerate(images):
+                    xref = img[0]
+
+                    try:
+                        base = doc.extract_image(xref)
+                        if not base or "image" not in base:
+                            logging.warning(
+                                f"Could not extract image data for xref {xref} on page {page_num + 1}"
+                            )
+                            skipped_count += 1
+                            continue
+
+                        image_bytes = base["image"]
+                        image_ext = base["ext"]
+
+                        try:
+                            pil_img = Image.open(io.BytesIO(image_bytes))
+                        except Exception as pil_e:
+                            logging.warning(
+                                f"Pillow error opening image xref {xref}: {pil_e}"
+                            )
+                            skipped_count += 1
+                            continue
+
+                        scale = dpi / 300.0
+                        new_width = int(pil_img.width * scale)
+                        new_height = int(pil_img.height * scale)
+
+                        if new_width <= 0 or new_height <= 0:
+                            logging.warning(
+                                f"Calculated new dimensions too small ({new_width}x{new_height}) for image xref {xref}"
+                            )
+                            skipped_count += 1
+                            continue
+
+                        pil_img_processed = pil_img.resize(
+                            (new_width, new_height), Image.Resampling.LANCZOS
+                        )
+                        if pil_img_processed.mode in ("RGBA", "LA", "P"):
+                            pil_img_processed = pil_img_processed.convert("RGB")
+
+                        img_bytes_io = io.BytesIO()
+                        pil_img_processed.save(
+                            img_bytes_io, format="JPEG", quality=quality, optimize=True
+                        )
+                        new_image_data = img_bytes_io.getvalue()
+                        doc.replace_image(xref, stream=new_image_data)
+                        processed_count += 1
+
+                    except Exception as e:
+                        logging.warning(f"Error processing image xref {xref}: {e}")
+                        skipped_count += 1
+
+            logging.info(
+                f"Image processing complete: {processed_count}/{image_count} images processed"
+            )
+
+            doc.save(
+                output_path,
+                garbage=4,
+                deflate=True,
+                deflate_images=True,
+                deflate_fonts=True,
+            )
+            return True, "Success"
+
+    except Exception as e:
+        logging.error(f"PDF compression failed: {e}")
+        return False, f"Compression failed: {e}"
+
+
 # --- Flask Routes ---
 
 
@@ -346,12 +438,10 @@ def download_file(filename):
 @app.route("/merge", methods=["POST"])
 def merge_pdfs():
     try:
-        # Get list of PDF files to merge from the request
         files_to_merge = request.json.get("files", [])
         if not files_to_merge:
             return jsonify({"error": "No files selected for merging"}), 400
 
-        # Create a timestamp for the merged file
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         temp_merged = f"temp_merged_{timestamp}.pdf"
         merged_filename = f"merged_{timestamp}.pdf"
@@ -370,7 +460,6 @@ def merge_pdfs():
             # Read and process each PDF
             reader = PdfReader(file_path)
             for page in reader.pages:
-                # Compress content streams
                 page.compress_content_streams()
                 writer.add_page(page)
 
@@ -378,8 +467,8 @@ def merge_pdfs():
         with open(temp_path, "wb") as output_file:
             writer.write(output_file)
 
-        # Convert merged PDF to PDF/A
-        success, message = convert_to_pdfa(temp_path, merged_path)
+        # Compress the merged PDF using PyMuPDF
+        success, message = compress_pdf(temp_path, merged_path, dpi=150, quality=60)
 
         # Clean up temporary file
         try:
@@ -388,7 +477,6 @@ def merge_pdfs():
             logging.warning(f"Could not remove temporary merged PDF: {e}")
 
         if success:
-            # Return the filename of the merged PDF/A
             return jsonify({"success": True, "merged_file": merged_filename})
         else:
             return jsonify({"error": message}), 500
