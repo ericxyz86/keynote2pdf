@@ -1,6 +1,7 @@
 import os
 import subprocess
 import uuid
+import secrets
 from flask import (
     Flask,
     request,
@@ -19,7 +20,9 @@ from PIL import Image
 import shutil
 from datetime import datetime
 
-Image.MAX_IMAGE_PIXELS = None  # Disable decompression bomb check
+# Set reasonable limit for image decompression to prevent DoS attacks
+# 500 million pixels = ~22k x 22k image, sufficient for most presentations
+Image.MAX_IMAGE_PIXELS = 500_000_000
 
 # --- Configuration ---
 # Use absolute paths for reliability
@@ -32,7 +35,18 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["CONVERTED_FOLDER"] = CONVERTED_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 300 * 1024 * 1024  # Max upload 300 MB total
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "your_very_secret_key_here")
+
+# Security: Generate secure secret key
+# In production, FLASK_SECRET_KEY environment variable should be set
+secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not secret_key:
+    # Generate a secure random key for development
+    secret_key = secrets.token_hex(32)
+    logging.warning(
+        "FLASK_SECRET_KEY not set. Generated temporary key. "
+        "Set FLASK_SECRET_KEY environment variable for production use."
+    )
+app.secret_key = secret_key
 
 # --- Logging Setup ---
 logging.basicConfig(
@@ -47,6 +61,21 @@ logging.basicConfig(
 # --- Helper Functions ---
 
 
+def log_error_return_generic(error, context=""):
+    """
+    Logs detailed error information server-side and returns a generic error message.
+
+    Args:
+        error: The exception or error object
+        context: Additional context about where the error occurred
+
+    Returns:
+        str: A generic user-facing error message
+    """
+    logging.error(f"{context}: {error}", exc_info=True)
+    return "An error occurred while processing your request. Please try again."
+
+
 def allowed_file(filename):
     """Checks if the filename has an allowed extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -56,42 +85,6 @@ def create_folders():
     """Creates upload and converted folders if they don't exist."""
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(app.config["CONVERTED_FOLDER"], exist_ok=True)
-
-
-def convert_to_pdfa(input_pdf, output_pdf):
-    """
-    Convert a PDF to PDF/A format using Ghostscript.
-    Returns True on success, False on failure.
-    """
-    try:
-        # Ghostscript command to convert to PDF/A
-        args = [
-            "gs",
-            "-dPDFA=1",
-            "-dBATCH",
-            "-dNOPAUSE",
-            "-sColorConversionStrategy=UseDeviceIndependentColor",
-            "-sDEVICE=pdfwrite",
-            "-dPDFACompatibilityPolicy=1",
-            "-sOutputFile={}".format(output_pdf),
-            input_pdf,
-        ]
-
-        process = subprocess.run(args, capture_output=True, text=True, check=False)
-
-        if process.returncode == 0 and os.path.exists(output_pdf):
-            logging.info("Successfully converted to PDF/A: {}".format(output_pdf))
-            return True, "Success"
-        else:
-            error_msg = (
-                process.stderr.strip() or "Unknown error during PDF/A conversion"
-            )
-            logging.error("PDF/A conversion failed: {}".format(error_msg))
-            return False, "PDF/A conversion failed: {}".format(error_msg)
-
-    except Exception as e:
-        logging.error("Error during PDF/A conversion: {}".format(e))
-        return False, "PDF/A conversion error: {}".format(e)
 
 
 def convert_key_to_pdf(key_filepath, pdf_filepath):
@@ -214,28 +207,45 @@ def convert_key_to_pdf(key_filepath, pdf_filepath):
                 logging.warning(f"Could not remove temporary PDF {temp_pdf_path}: {e}")
 
 
+def escape_applescript_string(s):
+    """
+    Escapes a string for safe inclusion in AppleScript.
+    Escapes backslashes and double quotes.
+    """
+    if s is None:
+        return ""
+    # First escape backslashes, then escape double quotes
+    s = s.replace("\\", "\\\\")
+    s = s.replace('"', '\\"')
+    return s
+
+
 def keynote_to_pdf(key_filepath, pdf_filepath):
     """
     Uses AppleScript to ask Keynote to export a .key file to .pdf.
     Returns True on success, False on failure.
     """
-    # Construct the AppleScript command with proper escaping
+    # Escape file paths to prevent AppleScript injection
+    safe_key_path = escape_applescript_string(key_filepath)
+    safe_pdf_path = escape_applescript_string(pdf_filepath)
+
+    # Construct the AppleScript command with properly escaped paths
     applescript = """
     tell application "Keynote"
         set keyFile to (POSIX file "{0}") as alias
         set pdfFile to "{1}"
-        
+
         try
             open keyFile
             delay 1 -- Give Keynote a moment to open the file
-            
+
             tell front document
                 export to (POSIX file pdfFile) as PDF
                 close saving no
             end tell
-            
+
             return "success"
-            
+
         on error errMsg number errNum
             try
                 if front document exists then
@@ -245,7 +255,7 @@ def keynote_to_pdf(key_filepath, pdf_filepath):
             error "Error: " & errMsg number errNum
         end try
     end tell
-    """.format(key_filepath, pdf_filepath)
+    """.format(safe_key_path, safe_pdf_path)
 
     try:
         # Execute the AppleScript using osascript
@@ -280,68 +290,6 @@ def keynote_to_pdf(key_filepath, pdf_filepath):
     except Exception as e:
         logging.error("Failed to run conversion: {}".format(e))
         return False, "Conversion failed: {}".format(e)
-
-
-def compress_pdf(input_path, output_path, dpi=150, quality=60):
-    """
-    Compresses a PDF using PyMuPDF's built-in compression.
-    Returns True on success, False on failure.
-    """
-    if not os.path.exists(input_path):
-        logging.error("Input file not found at '{}'".format(input_path))
-        return False, "Input file not found"
-
-    try:
-        # Open the PDF with PyMuPDF
-        doc = fitz.open(input_path)
-
-        # Process each page
-        for page in doc:
-            # Clean contents
-            page.clean_contents()
-            # Set DPI limits for images
-            page.set_mediabox(page.mediabox)  # Optimize page size
-
-        # Create a temporary file if saving to the same location
-        temp_path = output_path
-        if input_path == output_path:
-            temp_path = output_path + ".temp"
-
-        # Save with maximum compression
-        doc.save(
-            temp_path,
-            garbage=4,  # Maximum garbage collection
-            deflate=True,  # Compress streams
-            deflate_images=True,  # Compress images
-            clean=True,  # Remove unused elements
-        )
-
-        doc.close()
-
-        # If using temp file, replace the original
-        if temp_path != output_path:
-            os.replace(temp_path, output_path)
-
-        return True, "Success"
-
-    except Exception as e:
-        logging.error("PDF compression failed: {}".format(e))
-        # Clean up temp file if it exists
-        if (
-            "temp_path" in locals()
-            and os.path.exists(temp_path)
-            and temp_path != output_path
-        ):
-            try:
-                os.remove(temp_path)
-            except:
-                pass
-        return False, "Compression failed: {}".format(e)
-    finally:
-        try:
-            doc.close()
-        except:
-            pass
 
 
 def compress_pdf_images(input_path, output_path, dpi=150, quality=75):
@@ -513,6 +461,30 @@ def compress_pdf_images(input_path, output_path, dpi=150, quality=75):
         return False, f"Image compression failed: {e}"
 
 
+# --- Security Headers ---
+
+
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "script-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:;"
+    )
+    # Only add HSTS in production (when not in debug mode)
+    if not app.debug:
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
 # --- Flask Routes ---
 
 
@@ -596,12 +568,10 @@ def upload_and_convert():
                         )
 
                 except Exception as e:
-                    logging.error(
-                        "Error processing file {}: {}".format(original_filename, e)
+                    generic_msg = log_error_return_generic(
+                        e, f"Error processing file {original_filename}"
                     )
-                    failed_files[original_filename] = (
-                        "Server error during processing: {}".format(e)
-                    )
+                    failed_files[original_filename] = generic_msg
                     # Attempt cleanup if file was saved
                     if os.path.exists(key_filepath):
                         try:
@@ -750,8 +720,8 @@ def merge_pdfs():
         return jsonify({"success": True, "merged_file": merged_filename})
 
     except Exception as e:
-        logging.error(f"Error merging PDFs: {e}", exc_info=True)
-        return jsonify({"error": f"Server error during merge: {e}"}), 500
+        generic_msg = log_error_return_generic(e, "Error merging PDFs")
+        return jsonify({"error": generic_msg}), 500
 
 
 @app.route("/delete", methods=["POST"])
@@ -776,8 +746,8 @@ def delete_files():
         return jsonify({"success": True})
 
     except Exception as e:
-        logging.error(f"Error deleting files: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        generic_msg = log_error_return_generic(e, "Error deleting files")
+        return jsonify({"error": generic_msg}), 500
 
 
 # --- Main Execution ---
