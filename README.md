@@ -6,9 +6,11 @@ A Flask web application that converts Apple Keynote (.key) files to PDF format w
 
 **[Download Keynote2PDF Installer](https://github.com/ericxyz86/keynote2pdf/releases/latest/download/Keynote2PDF-Installer.dmg)**
 
+⚠️ **First Time Setup**: macOS will block the app with a security warning because it's not signed. This is normal! See the [User Guide](USER_GUIDE.md#️-first-time-installation---macos-security) for step-by-step instructions to open it safely.
+
 After installation, open your browser and go to **http://127.0.0.1:8080** to use the app.
 
-**👉 [Read the User Guide](USER_GUIDE.md)** for complete instructions on how to use the app.
+**👉 [Read the User Guide](USER_GUIDE.md)** for complete instructions.
 
 ---
 

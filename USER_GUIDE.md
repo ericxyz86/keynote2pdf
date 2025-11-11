@@ -4,6 +4,55 @@
 
 Keynote2PDF is a **web-based application** that runs in the background on your Mac. Unlike traditional Mac apps with windows, this app is accessed through your web browser.
 
+## ⚠️ First Time Installation - macOS Security
+
+When you first try to open Keynote2PDF, macOS will block it with a security warning because the app is not signed with an Apple Developer ID certificate. **This is normal and expected.**
+
+### Method 1: Open via System Settings (Recommended)
+
+1. **Download and mount the DMG file**
+2. **Drag Keynote2PDF.app to Applications folder**
+3. **Try to open the app** - You'll see a warning: *"Keynote2PDF.app cannot be opened because it is from an unidentified developer"*
+4. Click **"OK"** to dismiss the warning
+5. Open **System Settings** (or System Preferences on older macOS)
+6. Go to **Privacy & Security**
+7. Scroll down to the **Security** section
+8. You'll see a message: *"Keynote2PDF.app was blocked from use because it is not from an identified developer"*
+9. Click **"Open Anyway"**
+10. Confirm by clicking **"Open"** in the dialog that appears
+11. The app will now launch and run in the background
+
+### Method 2: Right-Click to Open (Alternative)
+
+1. **Download and mount the DMG file**
+2. **Drag Keynote2PDF.app to Applications folder**
+3. Open **Finder** and navigate to your **Applications** folder
+4. **Right-click** (or Control+click) on **Keynote2PDF.app**
+5. Select **"Open"** from the context menu
+6. Click **"Open"** in the dialog that appears
+
+### Method 3: Command Line (Advanced Users)
+
+If the above methods don't work, you can remove the quarantine flag:
+```bash
+xattr -d com.apple.quarantine /Applications/Keynote2PDF.app
+```
+
+Then open the app normally.
+
+### Why Does This Happen?
+
+- The app is not signed with an Apple Developer ID certificate ($99/year)
+- This is a free, open-source tool, so it's distributed unsigned
+- macOS Gatekeeper blocks unsigned apps by default to protect users
+- **The app is safe** - you can review the source code on GitHub: https://github.com/ericxyz86/keynote2pdf
+
+### After First Launch
+
+Once you've opened the app using one of the methods above, macOS will remember your choice and won't block it again.
+
+---
+
 ## Quick Start
 
 ### 1. Launch the App
