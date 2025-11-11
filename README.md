@@ -2,6 +2,16 @@
 
 A Flask web application that converts Apple Keynote (.key) files to PDF format with optimized compression and merging capabilities.
 
+## 📥 Download for macOS
+
+**[Download Keynote2PDF Installer](https://github.com/ericxyz86/keynote2pdf/releases/latest/download/Keynote2PDF-Installer.dmg)**
+
+After installation, open your browser and go to **http://127.0.0.1:8080** to use the app.
+
+**👉 [Read the User Guide](USER_GUIDE.md)** for complete instructions on how to use the app.
+
+---
+
 ## Features
 
 - Convert Keynote files to PDF with optimized image compression
