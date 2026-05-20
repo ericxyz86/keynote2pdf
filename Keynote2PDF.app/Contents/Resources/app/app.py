@@ -12,6 +12,7 @@ from flask import (
     jsonify,
 )
 from werkzeug.utils import secure_filename
+from werkzeug.security import safe_join
 import logging
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from datetime import datetime
@@ -51,6 +52,17 @@ def create_folders():
     """Creates upload and converted folders if they don't exist."""
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
     os.makedirs(app.config["CONVERTED_FOLDER"], exist_ok=True)
+
+
+def converted_pdf_path(filename):
+    """Return a safe converted-PDF path, or None for invalid names."""
+    safe_filename = secure_filename(filename)
+    if not safe_filename or not safe_filename.lower().endswith(".pdf"):
+        return None
+    path = safe_join(app.config["CONVERTED_FOLDER"], safe_filename)
+    if not path:
+        return None
+    return path
 
 
 def convert_key_to_pdf(key_filepath, pdf_filepath):
@@ -263,11 +275,12 @@ def upload_and_convert():
 def download_file(filename):
     """Provides the converted PDF file for download."""
     # Sanitize filename again just to be safe, although it should be safe already
-    safe_filename = secure_filename(filename)
-    if not safe_filename.lower().endswith(".pdf"):
+    file_path = converted_pdf_path(filename)
+    if not file_path:
         flash("Invalid file requested for download.", "error")
         return redirect(url_for("upload_and_convert"))
 
+    safe_filename = os.path.basename(file_path)
     logging.info(f"Download requested for: {safe_filename}")
     try:
         return send_from_directory(
@@ -303,7 +316,9 @@ def merge_pdfs():
 
         # Process each PDF file
         for filename in files_to_merge:
-            file_path = os.path.join(app.config["CONVERTED_FOLDER"], filename)
+            file_path = converted_pdf_path(filename)
+            if not file_path:
+                return jsonify({"error": f"Invalid file: {filename}"}), 400
             if not os.path.exists(file_path):
                 return jsonify({"error": f"File not found: {filename}"}), 404
 
